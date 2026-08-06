@@ -33,7 +33,7 @@ I built specific safeguards against the ways time-series data fools people:
 
 A four-stage pipeline — Collect → Store → Analyze → Display — pulling from four independent government/public sources into one unified schema, computing derived indicators (real wages, sector breakdowns) and a lead-lag analysis, served as an interactive dashboard. Python, SQLite, pandas, Chart.js.
 
-**Live dashboard:** [your-url-here]  ·  **Code + methodology:** connorferrell3
+**Live dashboard:** (https://connorferrell3.github.io/labor-market-monitor/)  ·  **Code + methodology:** connorferrell3
 
 ---
 
