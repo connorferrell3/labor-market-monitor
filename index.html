@@ -1,0 +1,885 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>U.S. Labor Market Monitor</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --paper:#F7F5F0; --ink:#1A1A17; --muted:#6F6D64; --hair:#E0DDD3;
+    --card:#FFFFFF; --grid:#EEEBE2; --accent:#336BCC;
+    --healthy:#1A7A4F; --watch:#B9822A; --stress:#B23B1E;
+    --healthy-bg:#EAF6EF; --watch-bg:#FBF3E3; --stress-bg:#FBEDE8;
+    --tile:#FBFAF7;
+  }
+  html[data-theme="dark"] {
+    --paper:#141410; --ink:#E9E7DE; --muted:#9A978C; --hair:#2C2B24;
+    --card:#1C1B16; --grid:#26251E; --accent:#6C97E8;
+    --healthy:#5FC08C; --watch:#E0B25C; --stress:#E17A5E;
+    --healthy-bg:#16241C; --watch-bg:#28211320; --stress-bg:#2A1913;
+    --tile:#211F19;
+  }
+  * { box-sizing:border-box; }
+  body {
+    margin:0; background:var(--paper); color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    line-height:1.5; transition:background .2s,color .2s;
+  }
+  .mono {
+    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    font-variant-numeric:tabular-nums;
+  }
+  /* Masthead */
+  header { border-bottom:2px solid var(--ink); background:var(--card); }
+  .mast {
+    max-width:1040px; margin:0 auto; padding:14px 32px;
+    display:flex; align-items:baseline; justify-content:space-between; gap:16px;
+  }
+  .eyebrow {
+    font-size:11px; letter-spacing:.14em; text-transform:uppercase;
+    color:var(--muted);
+  }
+  h1 {
+    font-family:Georgia,"Times New Roman",serif; font-weight:600;
+    font-size:30px; letter-spacing:-.01em; margin:2px 0 4px;
+  }
+  .sources { font-size:11px; letter-spacing:.06em; color:var(--muted); }
+  /* Documentation panel */
+  .guide { max-width:1040px; margin:0 auto; padding:0 32px; }
+  .guide details {
+    border:1px solid var(--hair); border-radius:8px; background:var(--tile);
+    margin-top:14px;
+  }
+  .guide summary {
+    cursor:pointer; padding:12px 16px; font-size:13px; font-weight:600;
+    list-style:none; display:flex; align-items:center; gap:8px;
+  }
+  .guide summary::-webkit-details-marker { display:none; }
+  .guide summary::before { content:"\25B8"; color:var(--muted); font-size:11px; }
+  .guide details[open] summary::before { content:"\25BE"; }
+  .guide .body { padding:4px 16px 16px; font-size:13px; line-height:1.55; }
+  .guide h3 {
+    font-size:11px; letter-spacing:.08em; text-transform:uppercase;
+    color:var(--muted); margin:16px 0 6px;
+  }
+  .guide table { width:100%; border-collapse:collapse; font-size:12px; margin-top:4px; }
+  .guide th, .guide td {
+    text-align:left; padding:6px 8px; border-bottom:1px solid var(--hair);
+    vertical-align:top;
+  }
+  .guide th { color:var(--muted); font-size:10px; letter-spacing:.06em;
+    text-transform:uppercase; }
+  .guide td.g { color:var(--healthy); white-space:nowrap; }
+  .guide td.a { color:var(--watch); white-space:nowrap; }
+  .guide td.r { color:var(--stress); white-space:nowrap; }
+  .guide .fresh { display:flex; flex-wrap:wrap; gap:8px 20px; margin-top:4px; }
+  .guide .fresh span { font-family:ui-monospace,Menlo,monospace; font-size:12px; }
+  .guide .fresh b { color:var(--muted); font-weight:500; }
+  .themebtn {
+    border:1px solid var(--hair); background:var(--tile); color:var(--ink);
+    border-radius:6px; padding:6px 12px; font-size:12px; cursor:pointer;
+    white-space:nowrap;
+  }
+  .themebtn:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+  /* Tab bar */
+  .tabbar {
+    max-width:1040px; margin:0 auto; padding:0 32px;
+    display:flex; gap:2px; border-bottom:1px solid var(--hair);
+  }
+  .tab {
+    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    font-size:12px; letter-spacing:.06em; text-transform:uppercase;
+    padding:12px 16px; cursor:pointer; color:var(--muted);
+    background:none; border:none; border-bottom:2px solid transparent;
+    margin-bottom:-1px;
+  }
+  .tab:hover { color:var(--ink); }
+  .tab.active { color:var(--ink); border-bottom-color:var(--accent); font-weight:600; }
+  .tab:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+  /* KPI strip */
+  .kpis {
+    max-width:1040px; margin:0 auto; padding:20px 32px 4px;
+    display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:12px;
+  }
+  .tile {
+    background:var(--tile); border:1px solid var(--hair);
+    border-left:3px solid var(--muted); border-radius:8px; padding:12px 14px;
+  }
+  .tile.healthy { border-left-color:var(--healthy); }
+  .tile.watch   { border-left-color:var(--watch); }
+  .tile.stress  { border-left-color:var(--stress); }
+  .tile .lab { font-size:10px; letter-spacing:.1em; color:var(--muted); text-transform:uppercase; }
+  .tile .val { font-size:22px; font-weight:600; margin-top:3px; }
+  .tile .dot { font-size:11px; margin-top:2px; }
+  .tile.healthy .dot { color:var(--healthy); }
+  .tile.watch   .dot { color:var(--watch); }
+  .tile.stress  .dot { color:var(--stress); }
+  .tile.neutral .dot { color:var(--muted); }
+  /* Exhibits */
+  .wrap { max-width:1040px; margin:0 auto; padding:16px 32px 64px; }
+  .tabread {
+    background:var(--tile); border:1px solid var(--hair); border-radius:8px;
+    padding:14px 16px; margin:8px 0 4px; font-size:14px; line-height:1.55;
+  }
+  .tabread .mono {
+    display:inline-block; font-size:10px; letter-spacing:.1em; color:var(--accent);
+    margin-right:8px;
+  }
+  .exhibit { border-top:1px solid var(--hair); padding:22px 0 8px; }
+  .extag {
+    font-size:11px; letter-spacing:.08em; color:var(--muted);
+    display:flex; gap:8px; align-items:center; margin-bottom:6px;
+  }
+  .extag b { color:var(--ink); font-weight:600; }
+  .exhead { display:flex; justify-content:space-between; align-items:baseline; gap:16px; }
+  .exhead h2 { font-size:19px; font-weight:600; margin:0; letter-spacing:-.01em; }
+  .latest { text-align:right; white-space:nowrap; }
+  .latest .n { font-size:22px; font-weight:600; }
+  .latest .l { font-size:11px; color:var(--muted); }
+  .sub { color:var(--muted); font-size:13px; margin:4px 0 10px; max-width:640px; }
+  .badges { display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap; }
+  .badge {
+    font-size:12px; font-weight:600; padding:3px 9px; border-radius:999px;
+    border:1px solid var(--hair); background:var(--tile);
+  }
+  .badge .k { color:var(--muted); font-weight:500; margin-right:5px;
+    font-size:10px; letter-spacing:.08em; }
+  .badge.up { color:var(--healthy); background:var(--healthy-bg); }
+  .badge.down { color:var(--stress); background:var(--stress-bg); }
+  .badge.flat { color:var(--muted); }
+  .chartbox { position:relative; height:200px; }
+  .srcline { font-size:11px; color:var(--muted); margin:10px 0 0; padding-top:8px; }
+  .graphread {
+    background:var(--tile); border-left:3px solid var(--accent);
+    border-radius:0 6px 6px 0; padding:10px 14px; margin:12px 0 2px;
+    font-size:13px; line-height:1.5;
+  }
+  .graphread .lbl {
+    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    font-size:10px; letter-spacing:.1em; color:var(--accent);
+    display:block; margin-bottom:3px;
+  }
+  .empty { color:var(--muted); font-size:13px; padding:16px 0; }
+  /* Sector table */
+  .sectorwrap { border-top:1px solid var(--hair); padding:22px 0 8px; }
+  .sectortbl { width:100%; border-collapse:collapse; font-size:13px; }
+  .sectortbl th, .sectortbl td {
+    text-align:right; padding:8px 10px; border-bottom:1px solid var(--hair);
+    font-variant-numeric:tabular-nums;
+  }
+  .sectortbl th { color:var(--muted); font-size:11px; letter-spacing:.06em;
+    text-transform:uppercase; font-weight:600; }
+  .sectortbl td.name, .sectortbl th.name { text-align:left; }
+  .sectortbl tr:hover td { background:var(--tile); }
+  .trend { font-weight:600; }
+  .trend.up { color:var(--healthy); }
+  .trend.down { color:var(--stress); }
+  .trend.flat { color:var(--muted); }
+  footer {
+    max-width:1040px; margin:0 auto; padding:20px 32px 40px;
+    border-top:1px solid var(--hair); color:var(--muted); font-size:11px;
+  }
+  @media (max-width:720px) {
+    .mast { flex-wrap:wrap; }
+  }
+  @media (prefers-reduced-motion:reduce) { * { transition:none !important; } }
+</style>
+</head>
+<body>
+<header>
+  <div class="mast">
+    <div>
+      <div class="eyebrow mono">Labor/26 &middot; Monthly monitor</div>
+      <h1>U.S. Labor Market Monitor</h1>
+      <div class="sources mono">BLS &middot; ADZUNA &middot; U. MICHIGAN &mdash; <span id="asof">updated monthly</span></div>
+    </div>
+    <button class="themebtn mono" id="themebtn" aria-label="Toggle theme">&#9789; Dark</button>
+  </div>
+</header>
+<nav class="tabbar" id="tabbar"></nav>
+<div style="max-width:1040px;margin:0 auto;padding:6px 32px;font-size:11px;color:var(--muted);font-family:ui-monospace,Menlo,monospace">Static snapshot &middot; data as of 2026-08 &middot; the live version updates monthly.</div>
+<div class="guide"><details id="guide"></details></div>
+<div class="kpis" id="kpis"></div>
+<div class="wrap" id="wrap"></div>
+<footer class="mono">
+  Openings, entry-level demand, inflation, and sentiment on one timeline.
+  Reads live from jobs.db &mdash; re-run collect.py, then refresh to update.
+  KPI tile colors follow published reference thresholds where they exist;
+  job-count series carry no standard bounds and stay neutral.
+</footer>
+<script>
+const UNIT_FMT = {
+  count:   v => v.toLocaleString(),
+  percent: v => v.toFixed(2) + "%",
+  index:   v => v.toFixed(1),
+  dollars: v => "$" + v.toFixed(2),
+};
+const STATUS_WORD = { healthy:"Healthy", watch:"Watch", stress:"Stress", neutral:"\u2014" };
+
+function badge(label, pct) {
+  if (pct === null || pct === undefined)
+    return `<span class="badge flat"><span class="k mono">${label}</span>n/a</span>`;
+  const cls = pct > 0.05 ? "up" : pct < -0.05 ? "down" : "flat";
+  const arrow = pct > 0.05 ? "\u2191" : pct < -0.05 ? "\u2193" : "\u2192";
+  const val = (pct >= 0 ? "+" : "") + pct.toFixed(2) + "%";
+  return `<span class="badge ${cls}"><span class="k mono">${label}</span>${arrow} ${val}</span>`;
+}
+
+// Theme toggle
+const root = document.documentElement;
+const tbtn = document.getElementById("themebtn");
+function setTheme(t) {
+  root.setAttribute("data-theme", t);
+  tbtn.innerHTML = t === "dark" ? "\u2600 Light" : "\u263D Dark";
+}
+tbtn.addEventListener("click", () =>
+  setTheme(root.getAttribute("data-theme") === "dark" ? "light" : "dark"));
+
+function cssVar(name) {
+  return getComputedStyle(root).getPropertyValue(name).trim();
+}
+
+const CHART_OK = typeof Chart !== "undefined";
+let ALL = [];          // all panels from the server
+let ACTIVE = null;     // active tab name
+let SECTOR_TABLE = null; // JOLTS-by-sector table payload
+let SECTOR_NETCHANGE = null; // CES YoY net-change payload
+let UNEMP_VIEWS = null;  // unemployment tab views
+let WAGE_VIEWS = null;   // wages tab views
+const charts = [];     // track Chart instances so we can destroy on re-render
+
+// A tiny honest "read" per tab, generated from the real numbers - no invented
+// prose. Mirrors the reference dashboard's commentary, but only says what the
+// data supports. Returns "" if there's nothing solid to say.
+function tabRead(panels) {
+  const by = {};
+  panels.forEach(p => { by[p.source + ":" + p.metric] = p; });
+  const bits = [];
+  const unemp = by["UNEMPLOYMENT:u3_rate_pct"];
+  if (unemp && unemp.stats.latest_value !== null) {
+    const w = { healthy:"in a healthy range", watch:"in the watch zone",
+                stress:"at stress levels" }[unemp.status] || "";
+    bits.push(`Unemployment is ${unemp.stats.latest_value.toFixed(1)}% (${w})`);
+  }
+  const wage = by["EARNINGS:earnings_yoy_pct"];
+  const cpi = by["CPI:inflation_yoy_pct"];   // may be on another tab, still in ALL
+  if (wage && wage.stats.latest_value !== null) {
+    let s = `wage growth is ${wage.stats.latest_value.toFixed(1)}%`;
+    const c = ALL.find(p => p.source==="CPI" && p.metric==="inflation_yoy_pct");
+    if (c && c.stats.latest_value !== null) {
+      const real = wage.stats.latest_value - c.stats.latest_value;
+      s += real >= 0
+        ? `, just above inflation (${c.stats.latest_value.toFixed(1)}%) \u2014 a small real gain`
+        : `, below inflation (${c.stats.latest_value.toFixed(1)}%) \u2014 real pay is slipping`;
+    }
+    bits.push(s);
+  }
+  if (!bits.length) return "";
+  return bits.join(". ") + ".";
+}
+
+// Per-graph analytical read: describes THIS graph's own movement (direction +
+// magnitude over its recent history) and adds an economic reference point where
+// one honestly exists (Fed target, break-even, historical norm). Computed live
+// from the data, so it updates when the data does. Returns "" if too little data.
+function graphRead(s) {
+  const pts = s.points;
+  if (!pts || pts.length < 4) return "";
+  const latest = pts[pts.length - 1].value;
+  const fmt = UNIT_FMT[s.unit] || (v => v);
+
+  // Recent direction: change over the last ~6 months (or whatever we have).
+  const lookback = Math.min(6, pts.length - 1);
+  const past = pts[pts.length - 1 - lookback].value;
+  const delta = latest - past;
+  const absd = Math.abs(delta);
+  const rising = delta > 0;
+
+  // Magnitude word, scaled per unit so "big" means something sensible.
+  function movementPhrase() {
+    if (s.unit === "percent") {
+      if (absd < 0.2) return "has held roughly steady";
+      return `has ${rising ? "risen" : "fallen"} ${absd.toFixed(1)}pp`;
+    }
+    if (s.unit === "index") {
+      if (absd < 1) return "has held roughly steady";
+      return `has ${rising ? "risen" : "fallen"} ${absd.toFixed(0)} points`;
+    }
+    if (s.unit === "dollars") {
+      if (absd < 0.10) return "has held roughly steady";
+      return `has ${rising ? "risen" : "fallen"} $${absd.toFixed(2)}`;
+    }
+    // count
+    const pct = past ? (delta / past * 100) : 0;
+    if (Math.abs(pct) < 1) return "has held roughly steady";
+    return `has ${rising ? "risen" : "fallen"} ${Math.abs(pct).toFixed(0)}%`;
+  }
+
+  const months = lookback;
+  const cleanName = {
+    "CPI:inflation_yoy_pct": "inflation",
+    "UNEMPLOYMENT:u3_rate_pct": "the unemployment rate",
+    "EARNINGS:earnings_usd": "average hourly pay",
+    "EARNINGS:earnings_yoy_pct": "wage growth",
+    "REAL_WAGE:real_wage_pct": "real wage growth",
+    "SENTIMENT:umich_ics": "consumer sentiment",
+    "BLS_JOLTS:total_openings": "job openings",
+    "ADZUNA:entry_level_index": "the entry-level index",
+  }[s.source + ":" + s.metric] || s.title.toLowerCase();
+  let read = `Over the last ${months} months, ${cleanName} `
+    + `${movementPhrase()}, now at ${fmt(latest)}.`;
+
+  // Economic interpretation, per metric - only where a real reference exists.
+  let interp = "";
+  const key = s.source + ":" + s.metric;
+  if (key === "CPI:inflation_yoy_pct") {
+    const gap = latest - 2.0;
+    interp = gap > 0.3
+      ? ` That's about ${gap.toFixed(1)}pp above the Fed's 2% target, so price pressure remains elevated.`
+      : Math.abs(gap) <= 0.3
+        ? ` That's essentially at the Fed's 2% target.`
+        : ` That's below the Fed's 2% target.`;
+  } else if (key === "UNEMPLOYMENT:u3_rate_pct") {
+    interp = latest < 4.0
+      ? ` Below 4% is historically considered near full employment.`
+      : latest < 5.0
+        ? ` Between 4-5% is moderate by historical standards, but the direction matters more than the level.`
+        : ` Above 5% signals meaningful labor-market slack.`;
+  } else if (key === "EARNINGS:earnings_yoy_pct") {
+    interp = ` Compare this against inflation: wage growth above CPI means workers gain real ground, below means they lose it.`;
+  } else if (key === "REAL_WAGE:real_wage_pct") {
+    interp = latest >= 0
+      ? ` Positive means paychecks are outpacing prices \u2014 real buying power is rising.`
+      : ` Negative means prices are outrunning pay \u2014 real buying power is eroding despite nominal raises.`;
+  } else if (key === "SENTIMENT:umich_ics") {
+    interp = latest < 70
+      ? ` Readings below the long-run average (~85) indicate consumers remain downbeat about the economy.`
+      : ` Readings near or above the long-run average (~85) indicate relatively confident consumers.`;
+  } else if (key === "BLS_JOLTS:total_openings") {
+    interp = ` Openings well above pre-2020 norms (~7M) indicate labor demand is still firm; a sustained fall would signal cooling.`;
+  } else if (key === "ADZUNA:entry_level_index") {
+    interp = ` This is a proxy index, so read its direction rather than its level.`;
+  }
+
+  return read + interp;
+}
+
+function renderUnemployment() {
+  const v = UNEMP_VIEWS;
+  const kpis = document.getElementById("kpis");
+  const wrap = document.getElementById("wrap");
+  kpis.innerHTML = "";
+  wrap.innerHTML = "";
+
+  // KPI strip: latest U-3, its yearly avg, highest/lowest sector.
+  const latestRate = v.last12.length ? v.last12[v.last12.length - 1].rate : null;
+  const thisYearAvg = v.yearly_avg.length ? v.yearly_avg[v.yearly_avg.length - 1] : null;
+  const hi = v.sector_latest[0], lo = v.sector_latest[v.sector_latest.length - 1];
+  function tile(label, val, cls) {
+    return `<div class="tile ${cls||'neutral'}"><div class="lab mono">${label}</div>`
+      + `<div class="val mono">${val}</div></div>`;
+  }
+  kpis.innerHTML =
+    tile("U-3 RATE (LATEST)", latestRate !== null ? latestRate.toFixed(1)+"%" : "\u2014",
+         latestRate === null ? "neutral" : latestRate < 4 ? "healthy" : latestRate < 5 ? "watch" : "stress")
+    + tile(`${thisYearAvg ? thisYearAvg.year : ""} AVG`, thisYearAvg ? thisYearAvg.rate.toFixed(1)+"%" : "\u2014")
+    + (hi ? tile("HIGHEST SECTOR", hi.rate.toFixed(1)+"%") : "")
+    + (lo ? tile("LOWEST SECTOR", lo.rate.toFixed(1)+"%") : "");
+
+  const muted = cssVar("--muted"), grid = cssVar("--grid"),
+        accent = cssVar("--accent"), healthy = cssVar("--healthy"),
+        stress = cssVar("--stress");
+
+  // Helper to add one exhibit with a canvas and return the canvas.
+  function exhibit(tag, title, sub, srcline, heightPx) {
+    const ex = document.createElement("div");
+    ex.className = "exhibit";
+    ex.innerHTML = `<div class="extag mono">${tag}</div>`
+      + `<div class="exhead"><h2>${title}</h2></div>`
+      + `<div class="sub">${sub}</div>`;
+    const box = document.createElement("div");
+    box.className = "chartbox";
+    box.style.height = (heightPx || 240) + "px";
+    const canvas = document.createElement("canvas");
+    box.appendChild(canvas);
+    ex.appendChild(box);
+    if (srcline) {
+      const p = document.createElement("p");
+      p.className = "srcline mono"; p.textContent = srcline;
+      ex.appendChild(p);
+    }
+    wrap.appendChild(ex);
+    return CHART_OK ? canvas : (box.innerHTML =
+      `<div class="empty">Chart library unavailable \u2014 refresh with a connection.</div>`, null);
+  }
+
+  // 1) Yearly average line with points.
+  let c = exhibit("Exhibit U1 | BLS CPS", "Average unemployment rate by year",
+    "Annual mean of the monthly U-3 rate. Each point is one year's average.",
+    "Source: BLS CPS, U-3 headline rate (LNS14000000), averaged by calendar year.");
+  if (c) charts.push(new Chart(c, {
+    type: "line",
+    data: { labels: v.yearly_avg.map(r => r.year),
+      datasets: [{ data: v.yearly_avg.map(r => r.rate), borderColor: accent,
+        backgroundColor: accent+"22", borderWidth: 2, pointRadius: 4,
+        pointBackgroundColor: accent, tension: .2, fill: true }] },
+    options: { responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false },
+        tooltip: { callbacks: { label: x => x.parsed.y.toFixed(2)+"%" } } },
+      scales: { x: { ticks: { color: muted, font:{family:"ui-monospace"} }, grid:{display:false} },
+        y: { ticks: { color: muted, font:{family:"ui-monospace"}, callback:x=>x+"%" }, grid:{color:grid} } } }
+  }));
+
+  // 2) Unemployment across sectors (latest month) - horizontal bars.
+  c = exhibit("Exhibit U2 | BLS CPS (NSA)", "Unemployment rate by sector",
+    "Latest month, each private-industry sector. Not seasonally adjusted, so read levels with seasonal context.",
+    "Source: BLS CPS unemployment rate by industry (LNU040322xx), not seasonally adjusted.",
+    Math.max(240, v.sector_latest.length * 32));
+  if (c) charts.push(new Chart(c, {
+    type: "bar",
+    data: { labels: v.sector_latest.map(r => r.sector),
+      datasets: [{ data: v.sector_latest.map(r => r.rate),
+        backgroundColor: v.sector_latest.map(r => r.rate < 4 ? healthy : r.rate < 5 ? cssVar("--watch") : stress),
+        borderWidth: 0 }] },
+    options: { indexAxis: "y", responsive: true, maintainAspectRatio: false,
+      plugins: { legend:{display:false}, tooltip:{callbacks:{label:x=>x.parsed.x.toFixed(1)+"%"}} },
+      scales: { x: { ticks:{color:muted,font:{family:"ui-monospace"},callback:x=>x+"%"}, grid:{color:grid} },
+        y: { ticks:{color:muted,font:{family:"ui-monospace"}}, grid:{display:false} } } }
+  }));
+
+  // 3) YoY change in sector unemployment - horizontal bars, signed.
+  if (v.sector_yoy.length) {
+    c = exhibit("Exhibit U3 | BLS CPS (NSA)", "Change in sector unemployment (year over year)",
+      "Percentage-point change vs the same month a year earlier (same-month cancels seasonality). Red = unemployment rose, green = fell.",
+      "Source: BLS CPS unemployment rate by industry, same-month year-over-year difference.",
+      Math.max(240, v.sector_yoy.length * 32));
+    if (c) charts.push(new Chart(c, {
+      type: "bar",
+      data: { labels: v.sector_yoy.map(r => r.sector),
+        datasets: [{ data: v.sector_yoy.map(r => r.change),
+          backgroundColor: v.sector_yoy.map(r => r.change > 0 ? stress : healthy), borderWidth: 0 }] },
+      options: { indexAxis: "y", responsive: true, maintainAspectRatio: false,
+        plugins: { legend:{display:false}, tooltip:{callbacks:{label:x=>(x.parsed.x>=0?"+":"")+x.parsed.x.toFixed(1)+"pp"}} },
+        scales: { x: { ticks:{color:muted,font:{family:"ui-monospace"},callback:x=>(x>=0?"+":"")+x+"pp"}, grid:{color:grid} },
+          y: { ticks:{color:muted,font:{family:"ui-monospace"}}, grid:{display:false} } } }
+    }));
+  }
+
+  // 4) Last 12 months monthly bars.
+  c = exhibit("Exhibit U4 | BLS CPS", "Unemployment rate, last 12 months",
+    "Monthly U-3 rate over the trailing year.",
+    "Source: BLS CPS, U-3 headline rate (LNS14000000), seasonally adjusted.");
+  if (c) charts.push(new Chart(c, {
+    type: "bar",
+    data: { labels: v.last12.map(r => r.month),
+      datasets: [{ data: v.last12.map(r => r.rate), backgroundColor: accent, borderWidth: 0 }] },
+    options: { responsive: true, maintainAspectRatio: false,
+      plugins: { legend:{display:false}, tooltip:{callbacks:{label:x=>x.parsed.y.toFixed(1)+"%"}} },
+      scales: { x: { ticks:{color:muted,font:{family:"ui-monospace"}}, grid:{display:false} },
+        y: { ticks:{color:muted,font:{family:"ui-monospace"},callback:x=>x+"%"}, grid:{color:grid} } } }
+  }));
+
+  // 5) Sector table across years with trend column.
+  if (v.sector_table && v.sector_table.rows.length) {
+    const t = v.sector_table;
+    const arrows = { up:"\u2191", down:"\u2193", flat:"\u2192" };
+    const sw = document.createElement("div");
+    sw.className = "sectorwrap";
+    let html = `<div class="extag mono">Exhibit U5 | BLS CPS (NSA)</div>`
+      + `<div class="exhead"><h2>Unemployment rate by sector, by year</h2></div>`
+      + `<div class="sub">Latest month of each year per sector. Trend compares earliest year on record to latest. `
+      + `Note: for unemployment, a DOWN trend (green) is good.</div>`;
+    html += `<table class="sectortbl"><thead><tr><th class="name">Sector</th>`;
+    t.years.forEach(y => html += `<th>${y}</th>`);
+    html += `<th>Trend</th></tr></thead><tbody>`;
+    t.rows.forEach(r => {
+      html += `<tr><td class="name">${r.sector}</td>`;
+      r.values.forEach(val => html += `<td class="mono">${val === null ? "\u2014" : val.toFixed(1)+"%"}</td>`);
+      // For unemployment, falling is good: swap the color mapping.
+      const cls = r.trend === "up" ? "down" : r.trend === "down" ? "up" : "flat";
+      const pct = r.trend_pct === null ? "" : ` ${r.trend_pct>=0?"+":""}${r.trend_pct}%`;
+      html += `<td class="trend ${cls} mono">${arrows[r.trend]}${pct}</td></tr>`;
+    });
+    html += `</tbody></table>`;
+    html += `<p class="srcline mono">Source: BLS CPS unemployment rate by industry (LNU040322xx), `
+      + `not seasonally adjusted. Green trend = unemployment fell (good); red = rose.</p>`;
+    sw.innerHTML = html;
+    wrap.appendChild(sw);
+  }
+}
+
+async function main() {
+const payload = {"panels": [{"source": "BLS_JOLTS", "metric": "total_openings", "title": "Job openings", "kpi_label": "JOLTS OPENINGS", "subtitle": "Total nonfarm job openings, monthly.", "exhibit": "01", "src_tag": "BLS JOLTS", "source_line": "Source: BLS Job Openings & Labor Turnover Survey (series JTS000000000000000JOL, seasonally adjusted).", "color": "#336BCC", "unit": "count", "tab": "Jobs", "points": [{"date": "2021-01-01", "value": 7162000.0}, {"date": "2021-02-01", "value": 7827000.0}, {"date": "2021-03-01", "value": 8499000.0}, {"date": "2021-04-01", "value": 9346000.0}, {"date": "2021-05-01", "value": 9954000.0}, {"date": "2021-06-01", "value": 10319000.0}, {"date": "2021-07-01", "value": 10983000.0}, {"date": "2021-08-01", "value": 10872000.0}, {"date": "2021-09-01", "value": 10834000.0}, {"date": "2021-10-01", "value": 11238000.0}, {"date": "2021-11-01", "value": 11199000.0}, {"date": "2021-12-01", "value": 11520000.0}, {"date": "2022-01-01", "value": 11210000.0}, {"date": "2022-02-01", "value": 11698000.0}, {"date": "2022-03-01", "value": 12301000.0}, {"date": "2022-04-01", "value": 11861000.0}, {"date": "2022-05-01", "value": 11535000.0}, {"date": "2022-06-01", "value": 11283000.0}, {"date": "2022-07-01", "value": 11576000.0}, {"date": "2022-08-01", "value": 10092000.0}, {"date": "2022-09-01", "value": 10800000.0}, {"date": "2022-10-01", "value": 10447000.0}, {"date": "2022-11-01", "value": 10632000.0}, {"date": "2022-12-01", "value": 10902000.0}, {"date": "2023-01-01", "value": 10318000.0}, {"date": "2023-02-01", "value": 9857000.0}, {"date": "2023-03-01", "value": 9655000.0}, {"date": "2023-04-01", "value": 9966000.0}, {"date": "2023-05-01", "value": 9368000.0}, {"date": "2023-06-01", "value": 9180000.0}, {"date": "2023-07-01", "value": 8657000.0}, {"date": "2023-08-01", "value": 9254000.0}, {"date": "2023-09-01", "value": 9259000.0}, {"date": "2023-10-01", "value": 8580000.0}, {"date": "2023-11-01", "value": 8602000.0}, {"date": "2023-12-01", "value": 8520000.0}, {"date": "2024-01-01", "value": 8378000.0}, {"date": "2024-02-01", "value": 8440000.0}, {"date": "2024-03-01", "value": 8206000.0}, {"date": "2024-04-01", "value": 7529000.0}, {"date": "2024-05-01", "value": 7782000.0}, {"date": "2024-06-01", "value": 7416000.0}, {"date": "2024-07-01", "value": 7426000.0}, {"date": "2024-08-01", "value": 7520000.0}, {"date": "2024-09-01", "value": 6943000.0}, {"date": "2024-10-01", "value": 7379000.0}, {"date": "2024-11-01", "value": 7566000.0}, {"date": "2024-12-01", "value": 7295000.0}, {"date": "2025-01-01", "value": 7431000.0}, {"date": "2025-02-01", "value": 7242000.0}, {"date": "2025-03-01", "value": 6952000.0}, {"date": "2025-04-01", "value": 7098000.0}, {"date": "2025-05-01", "value": 7310000.0}, {"date": "2025-06-01", "value": 7204000.0}, {"date": "2025-07-01", "value": 7089000.0}, {"date": "2025-08-01", "value": 6919000.0}, {"date": "2025-09-01", "value": 7169000.0}, {"date": "2025-10-01", "value": 7170000.0}, {"date": "2025-11-01", "value": 6846000.0}, {"date": "2025-12-01", "value": 6550000.0}, {"date": "2026-01-01", "value": 7240000.0}, {"date": "2026-02-01", "value": 6922000.0}, {"date": "2026-03-01", "value": 6887000.0}, {"date": "2026-04-01", "value": 7585000.0}, {"date": "2026-05-01", "value": 7537000.0}, {"date": "2026-06-01", "value": 7359000.0}], "stats": {"latest_date": "2026-06-01", "latest_value": 7359000.0, "mom_pct": -2.3616823669895184, "ytd_pct": 1.643646408839779}, "status": "neutral"}, {"source": "ADZUNA", "metric": "entry_level_index", "title": "Entry-level postings", "kpi_label": "ENTRY-LEVEL", "subtitle": "Keyword-matched posting proxy. Trend matters, not the absolute level. Collecting since Aug 2026.", "exhibit": "02", "src_tag": "ADZUNA", "source_line": "Source: Adzuna US search API, keyword-matched entry-level terms. Proxy index (terms overlap); read the trend.", "color": "#7A5CD0", "unit": "count", "tab": "Jobs", "points": [{"date": "2026-08-01", "value": 730313.0}], "stats": {"latest_date": "2026-08-01", "latest_value": 730313.0, "mom_pct": null, "ytd_pct": null}, "status": "neutral"}, {"source": "CPI", "metric": "inflation_yoy_pct", "title": "Inflation (CPI, YoY)", "kpi_label": "CPI YoY", "subtitle": "% change vs the same month a year earlier.", "exhibit": "03", "src_tag": "BLS CPI-U", "source_line": "Source: BLS CPI-U, all items, U.S. city average (series CUUR0000SA0). Fed target ~2%.", "color": "#C0632D", "unit": "percent", "tab": "Inflation", "points": [{"date": "2021-01-01", "value": 1.4}, {"date": "2021-02-01", "value": 1.68}, {"date": "2021-03-01", "value": 2.62}, {"date": "2021-04-01", "value": 4.16}, {"date": "2021-05-01", "value": 4.99}, {"date": "2021-06-01", "value": 5.39}, {"date": "2021-07-01", "value": 5.37}, {"date": "2021-08-01", "value": 5.25}, {"date": "2021-09-01", "value": 5.39}, {"date": "2021-10-01", "value": 6.22}, {"date": "2021-11-01", "value": 6.81}, {"date": "2021-12-01", "value": 7.04}, {"date": "2022-01-01", "value": 7.48}, {"date": "2022-02-01", "value": 7.87}, {"date": "2022-03-01", "value": 8.54}, {"date": "2022-04-01", "value": 8.26}, {"date": "2022-05-01", "value": 8.58}, {"date": "2022-06-01", "value": 9.06}, {"date": "2022-07-01", "value": 8.52}, {"date": "2022-08-01", "value": 8.26}, {"date": "2022-09-01", "value": 8.2}, {"date": "2022-10-01", "value": 7.75}, {"date": "2022-11-01", "value": 7.11}, {"date": "2022-12-01", "value": 6.45}, {"date": "2023-01-01", "value": 6.41}, {"date": "2023-02-01", "value": 6.04}, {"date": "2023-03-01", "value": 4.98}, {"date": "2023-04-01", "value": 4.93}, {"date": "2023-05-01", "value": 4.05}, {"date": "2023-06-01", "value": 2.97}, {"date": "2023-07-01", "value": 3.18}, {"date": "2023-08-01", "value": 3.67}, {"date": "2023-09-01", "value": 3.7}, {"date": "2023-10-01", "value": 3.24}, {"date": "2023-11-01", "value": 3.14}, {"date": "2023-12-01", "value": 3.35}, {"date": "2024-01-01", "value": 3.09}, {"date": "2024-02-01", "value": 3.15}, {"date": "2024-03-01", "value": 3.48}, {"date": "2024-04-01", "value": 3.36}, {"date": "2024-05-01", "value": 3.27}, {"date": "2024-06-01", "value": 2.97}, {"date": "2024-07-01", "value": 2.89}, {"date": "2024-08-01", "value": 2.53}, {"date": "2024-09-01", "value": 2.44}, {"date": "2024-10-01", "value": 2.6}, {"date": "2024-11-01", "value": 2.75}, {"date": "2024-12-01", "value": 2.89}, {"date": "2025-01-01", "value": 3.0}, {"date": "2025-02-01", "value": 2.82}, {"date": "2025-03-01", "value": 2.39}, {"date": "2025-04-01", "value": 2.31}, {"date": "2025-05-01", "value": 2.35}, {"date": "2025-06-01", "value": 2.67}, {"date": "2025-07-01", "value": 2.7}, {"date": "2025-08-01", "value": 2.92}, {"date": "2025-09-01", "value": 3.01}, {"date": "2025-11-01", "value": 2.74}, {"date": "2025-12-01", "value": 2.68}, {"date": "2026-01-01", "value": 2.39}, {"date": "2026-02-01", "value": 2.41}, {"date": "2026-03-01", "value": 3.26}, {"date": "2026-04-01", "value": 3.81}, {"date": "2026-05-01", "value": 4.25}, {"date": "2026-06-01", "value": 3.53}], "stats": {"latest_date": "2026-06-01", "latest_value": 3.53, "mom_pct": -16.94117647058824, "ytd_pct": 47.698744769874466}, "status": "stress"}, {"source": "UNEMPLOYMENT", "metric": "u3_rate_pct", "title": "Unemployment rate (U-3)", "kpi_label": "UNEMPLOYMENT", "subtitle": "Headline unemployment rate, 16+, seasonally adjusted.", "exhibit": "04", "src_tag": "BLS CPS", "source_line": "Source: BLS Current Population Survey, U-3 unemployment rate (series LNS14000000, seasonally adjusted).", "color": "#B23B1E", "unit": "percent", "tab": "Jobs", "points": [{"date": "2021-01-01", "value": 6.4}, {"date": "2021-02-01", "value": 6.2}, {"date": "2021-03-01", "value": 6.1}, {"date": "2021-04-01", "value": 6.1}, {"date": "2021-05-01", "value": 5.8}, {"date": "2021-06-01", "value": 5.9}, {"date": "2021-07-01", "value": 5.4}, {"date": "2021-08-01", "value": 5.1}, {"date": "2021-09-01", "value": 4.7}, {"date": "2021-10-01", "value": 4.5}, {"date": "2021-11-01", "value": 4.1}, {"date": "2021-12-01", "value": 3.9}, {"date": "2022-01-01", "value": 4.0}, {"date": "2022-02-01", "value": 3.9}, {"date": "2022-03-01", "value": 3.7}, {"date": "2022-04-01", "value": 3.7}, {"date": "2022-05-01", "value": 3.6}, {"date": "2022-06-01", "value": 3.6}, {"date": "2022-07-01", "value": 3.5}, {"date": "2022-08-01", "value": 3.6}, {"date": "2022-09-01", "value": 3.5}, {"date": "2022-10-01", "value": 3.6}, {"date": "2022-11-01", "value": 3.6}, {"date": "2022-12-01", "value": 3.5}, {"date": "2023-01-01", "value": 3.5}, {"date": "2023-02-01", "value": 3.6}, {"date": "2023-03-01", "value": 3.5}, {"date": "2023-04-01", "value": 3.4}, {"date": "2023-05-01", "value": 3.6}, {"date": "2023-06-01", "value": 3.6}, {"date": "2023-07-01", "value": 3.5}, {"date": "2023-08-01", "value": 3.7}, {"date": "2023-09-01", "value": 3.7}, {"date": "2023-10-01", "value": 3.9}, {"date": "2023-11-01", "value": 3.7}, {"date": "2023-12-01", "value": 3.8}, {"date": "2024-01-01", "value": 3.7}, {"date": "2024-02-01", "value": 3.9}, {"date": "2024-03-01", "value": 3.9}, {"date": "2024-04-01", "value": 3.9}, {"date": "2024-05-01", "value": 3.9}, {"date": "2024-06-01", "value": 4.1}, {"date": "2024-07-01", "value": 4.2}, {"date": "2024-08-01", "value": 4.2}, {"date": "2024-09-01", "value": 4.1}, {"date": "2024-10-01", "value": 4.1}, {"date": "2024-11-01", "value": 4.2}, {"date": "2024-12-01", "value": 4.1}, {"date": "2025-01-01", "value": 4.0}, {"date": "2025-02-01", "value": 4.2}, {"date": "2025-03-01", "value": 4.2}, {"date": "2025-04-01", "value": 4.2}, {"date": "2025-05-01", "value": 4.3}, {"date": "2025-06-01", "value": 4.1}, {"date": "2025-07-01", "value": 4.3}, {"date": "2025-08-01", "value": 4.3}, {"date": "2025-09-01", "value": 4.4}, {"date": "2025-11-01", "value": 4.5}, {"date": "2025-12-01", "value": 4.4}, {"date": "2026-01-01", "value": 4.3}, {"date": "2026-02-01", "value": 4.4}, {"date": "2026-03-01", "value": 4.3}, {"date": "2026-04-01", "value": 4.3}, {"date": "2026-05-01", "value": 4.3}, {"date": "2026-06-01", "value": 4.2}], "stats": {"latest_date": "2026-06-01", "latest_value": 4.2, "mom_pct": -2.3255813953488293, "ytd_pct": -2.3255813953488293}, "status": "watch"}, {"source": "EARNINGS", "metric": "earnings_yoy_pct", "title": "Wage growth (YoY)", "kpi_label": "WAGE GROWTH", "subtitle": "Year-over-year change in average hourly earnings. Compare against CPI above \u2014 higher than inflation means real gains.", "exhibit": "06", "src_tag": "BLS CES", "source_line": "Source: BLS CES avg hourly earnings YoY (CES0500000003). Read alongside CPI: wage growth minus inflation = real wage change.", "color": "#2E8B6F", "unit": "percent", "tab": "Wages", "points": [{"date": "2021-01-01", "value": 5.28}, {"date": "2021-02-01", "value": 5.29}, {"date": "2021-03-01", "value": 4.52}, {"date": "2021-04-01", "value": 0.6}, {"date": "2021-05-01", "value": 2.32}, {"date": "2021-06-01", "value": 3.95}, {"date": "2021-07-01", "value": 4.32}, {"date": "2021-08-01", "value": 4.37}, {"date": "2021-09-01", "value": 4.98}, {"date": "2021-10-01", "value": 5.42}, {"date": "2021-11-01", "value": 5.36}, {"date": "2021-12-01", "value": 4.95}, {"date": "2022-01-01", "value": 5.58}, {"date": "2022-02-01", "value": 5.29}, {"date": "2022-03-01", "value": 5.89}, {"date": "2022-04-01", "value": 5.76}, {"date": "2022-05-01", "value": 5.56}, {"date": "2022-06-01", "value": 5.4}, {"date": "2022-07-01", "value": 5.48}, {"date": "2022-08-01", "value": 5.39}, {"date": "2022-09-01", "value": 5.13}, {"date": "2022-10-01", "value": 5.01}, {"date": "2022-11-01", "value": 5.09}, {"date": "2022-12-01", "value": 4.94}, {"date": "2023-01-01", "value": 4.49}, {"date": "2023-02-01", "value": 4.77}, {"date": "2023-03-01", "value": 4.62}, {"date": "2023-04-01", "value": 4.6}, {"date": "2023-05-01", "value": 4.36}, {"date": "2023-06-01", "value": 4.66}, {"date": "2023-07-01", "value": 4.67}, {"date": "2023-08-01", "value": 4.47}, {"date": "2023-09-01", "value": 4.42}, {"date": "2023-10-01", "value": 4.22}, {"date": "2023-11-01", "value": 4.11}, {"date": "2023-12-01", "value": 4.1}, {"date": "2024-01-01", "value": 4.39}, {"date": "2024-02-01", "value": 4.13}, {"date": "2024-03-01", "value": 4.15}, {"date": "2024-04-01", "value": 3.98}, {"date": "2024-05-01", "value": 4.15}, {"date": "2024-06-01", "value": 3.92}, {"date": "2024-07-01", "value": 3.63}, {"date": "2024-08-01", "value": 3.92}, {"date": "2024-09-01", "value": 3.91}, {"date": "2024-10-01", "value": 4.05}, {"date": "2024-11-01", "value": 4.18}, {"date": "2024-12-01", "value": 4.08}, {"date": "2025-01-01", "value": 3.97}, {"date": "2025-02-01", "value": 4.11}, {"date": "2025-03-01", "value": 4.21}, {"date": "2025-04-01", "value": 3.91}, {"date": "2025-05-01", "value": 3.98}, {"date": "2025-06-01", "value": 3.86}, {"date": "2025-07-01", "value": 3.96}, {"date": "2025-08-01", "value": 3.98}, {"date": "2025-09-01", "value": 3.85}, {"date": "2025-10-01", "value": 3.92}, {"date": "2025-11-01", "value": 3.93}, {"date": "2025-12-01", "value": 3.73}, {"date": "2026-01-01", "value": 3.66}, {"date": "2026-02-01", "value": 3.7}, {"date": "2026-03-01", "value": 3.43}, {"date": "2026-04-01", "value": 3.57}, {"date": "2026-05-01", "value": 3.39}, {"date": "2026-06-01", "value": 3.52}], "stats": {"latest_date": "2026-06-01", "latest_value": 3.52, "mom_pct": 3.834808259587017, "ytd_pct": -3.8251366120218613}, "status": "healthy"}, {"source": "REAL_WAGE", "metric": "real_wage_pct", "title": "Real wage growth", "kpi_label": "REAL WAGES", "subtitle": "Wage growth minus inflation. Positive = pay outpacing prices (buying power rising); negative = falling behind.", "exhibit": "07", "src_tag": "BLS CES \u2212 CPI", "source_line": "Derived: BLS avg hourly earnings YoY minus BLS CPI-U YoY. The zero line is the break-even between gaining and losing ground.", "color": "#1D9E75", "unit": "percent", "tab": "Wages", "points": [{"date": "2021-01-01", "value": 3.88}, {"date": "2021-02-01", "value": 3.61}, {"date": "2021-03-01", "value": 1.9}, {"date": "2021-04-01", "value": -3.56}, {"date": "2021-05-01", "value": -2.67}, {"date": "2021-06-01", "value": -1.44}, {"date": "2021-07-01", "value": -1.05}, {"date": "2021-08-01", "value": -0.88}, {"date": "2021-09-01", "value": -0.41}, {"date": "2021-10-01", "value": -0.8}, {"date": "2021-11-01", "value": -1.45}, {"date": "2021-12-01", "value": -2.09}, {"date": "2022-01-01", "value": -1.9}, {"date": "2022-02-01", "value": -2.58}, {"date": "2022-03-01", "value": -2.65}, {"date": "2022-04-01", "value": -2.5}, {"date": "2022-05-01", "value": -3.02}, {"date": "2022-06-01", "value": -3.66}, {"date": "2022-07-01", "value": -3.04}, {"date": "2022-08-01", "value": -2.87}, {"date": "2022-09-01", "value": -3.07}, {"date": "2022-10-01", "value": -2.74}, {"date": "2022-11-01", "value": -2.02}, {"date": "2022-12-01", "value": -1.51}, {"date": "2023-01-01", "value": -1.92}, {"date": "2023-02-01", "value": -1.27}, {"date": "2023-03-01", "value": -0.36}, {"date": "2023-04-01", "value": -0.33}, {"date": "2023-05-01", "value": 0.31}, {"date": "2023-06-01", "value": 1.69}, {"date": "2023-07-01", "value": 1.49}, {"date": "2023-08-01", "value": 0.8}, {"date": "2023-09-01", "value": 0.72}, {"date": "2023-10-01", "value": 0.98}, {"date": "2023-11-01", "value": 0.97}, {"date": "2023-12-01", "value": 0.75}, {"date": "2024-01-01", "value": 1.3}, {"date": "2024-02-01", "value": 0.98}, {"date": "2024-03-01", "value": 0.67}, {"date": "2024-04-01", "value": 0.62}, {"date": "2024-05-01", "value": 0.88}, {"date": "2024-06-01", "value": 0.95}, {"date": "2024-07-01", "value": 0.74}, {"date": "2024-08-01", "value": 1.39}, {"date": "2024-09-01", "value": 1.47}, {"date": "2024-10-01", "value": 1.45}, {"date": "2024-11-01", "value": 1.43}, {"date": "2024-12-01", "value": 1.19}, {"date": "2025-01-01", "value": 0.97}, {"date": "2025-02-01", "value": 1.29}, {"date": "2025-03-01", "value": 1.82}, {"date": "2025-04-01", "value": 1.6}, {"date": "2025-05-01", "value": 1.63}, {"date": "2025-06-01", "value": 1.19}, {"date": "2025-07-01", "value": 1.26}, {"date": "2025-08-01", "value": 1.06}, {"date": "2025-09-01", "value": 0.84}, {"date": "2025-11-01", "value": 1.19}, {"date": "2025-12-01", "value": 1.05}, {"date": "2026-01-01", "value": 1.27}, {"date": "2026-02-01", "value": 1.29}, {"date": "2026-03-01", "value": 0.17}, {"date": "2026-04-01", "value": -0.24}, {"date": "2026-05-01", "value": -0.86}, {"date": "2026-06-01", "value": -0.01}], "stats": {"latest_date": "2026-06-01", "latest_value": -0.01, "mom_pct": 0.85, "ytd_pct": -1.28}, "status": "stress"}, {"source": "SENTIMENT", "metric": "umich_ics", "title": "Consumer sentiment", "kpi_label": "UMICH SENTIMENT", "subtitle": "U. Michigan Index of Consumer Sentiment. Higher = more optimistic. Shown from 2015.", "exhibit": "07", "src_tag": "U. MICHIGAN", "source_line": "Source: University of Michigan Survey of Consumers, Index of Consumer Sentiment. Long-run avg ~85.", "color": "#7A5CD0", "unit": "index", "tab": "Sentiment", "points": [{"date": "2021-01-01", "value": 79.0}, {"date": "2021-02-01", "value": 76.8}, {"date": "2021-03-01", "value": 84.9}, {"date": "2021-04-01", "value": 88.3}, {"date": "2021-05-01", "value": 82.9}, {"date": "2021-06-01", "value": 85.5}, {"date": "2021-07-01", "value": 81.2}, {"date": "2021-08-01", "value": 70.3}, {"date": "2021-09-01", "value": 72.8}, {"date": "2021-10-01", "value": 71.7}, {"date": "2021-11-01", "value": 67.4}, {"date": "2021-12-01", "value": 70.6}, {"date": "2022-01-01", "value": 67.2}, {"date": "2022-02-01", "value": 62.8}, {"date": "2022-03-01", "value": 59.4}, {"date": "2022-04-01", "value": 65.2}, {"date": "2022-05-01", "value": 58.4}, {"date": "2022-06-01", "value": 50.0}, {"date": "2022-07-01", "value": 51.5}, {"date": "2022-08-01", "value": 58.2}, {"date": "2022-09-01", "value": 58.6}, {"date": "2022-10-01", "value": 59.9}, {"date": "2022-11-01", "value": 56.7}, {"date": "2022-12-01", "value": 59.8}, {"date": "2023-01-01", "value": 64.9}, {"date": "2023-02-01", "value": 66.9}, {"date": "2023-03-01", "value": 62.0}, {"date": "2023-04-01", "value": 63.7}, {"date": "2023-05-01", "value": 59.0}, {"date": "2023-06-01", "value": 64.2}, {"date": "2023-07-01", "value": 71.5}, {"date": "2023-08-01", "value": 69.4}, {"date": "2023-09-01", "value": 67.8}, {"date": "2023-10-01", "value": 63.8}, {"date": "2023-11-01", "value": 61.3}, {"date": "2023-12-01", "value": 69.7}, {"date": "2024-01-01", "value": 79.0}, {"date": "2024-02-01", "value": 76.9}, {"date": "2024-03-01", "value": 79.4}, {"date": "2024-04-01", "value": 77.2}, {"date": "2024-05-01", "value": 69.1}, {"date": "2024-06-01", "value": 68.2}, {"date": "2024-07-01", "value": 66.4}, {"date": "2024-08-01", "value": 67.9}, {"date": "2024-09-01", "value": 70.1}, {"date": "2024-10-01", "value": 70.5}, {"date": "2024-11-01", "value": 71.8}, {"date": "2024-12-01", "value": 74.0}, {"date": "2025-01-01", "value": 71.7}, {"date": "2025-02-01", "value": 64.7}, {"date": "2025-03-01", "value": 57.0}, {"date": "2025-04-01", "value": 52.2}, {"date": "2025-05-01", "value": 52.2}, {"date": "2025-06-01", "value": 60.7}, {"date": "2025-07-01", "value": 61.7}, {"date": "2025-08-01", "value": 58.2}, {"date": "2025-09-01", "value": 55.1}, {"date": "2025-10-01", "value": 53.6}, {"date": "2025-11-01", "value": 51.0}, {"date": "2025-12-01", "value": 52.9}, {"date": "2026-01-01", "value": 56.4}, {"date": "2026-02-01", "value": 56.6}, {"date": "2026-03-01", "value": 53.3}, {"date": "2026-04-01", "value": 49.8}, {"date": "2026-05-01", "value": 44.8}, {"date": "2026-06-01", "value": 49.5}, {"date": "2026-07-01", "value": 55.2}], "stats": {"latest_date": "2026-07-01", "latest_value": 55.2, "mom_pct": 11.515151515151521, "ytd_pct": -2.127659574468078}, "status": "watch"}], "as_of": "2026-08-01", "sector_table": {"years": ["2021", "2022", "2023", "2024", "2025", "2026"], "rows": [{"sector": "Education & health", "values": [2158000.0, 2092000.0, 2020000.0, 1573000.0, 1416000.0, 1475000.0], "trend": "down", "trend_pct": -31.6}, {"sector": "Health care & social", "values": [1945000.0, 1943000.0, 1828000.0, 1410000.0, 1260000.0, 1347000.0], "trend": "down", "trend_pct": -30.7}, {"sector": "Trade, transport, util.", "values": [1971000.0, 1805000.0, 1260000.0, 1007000.0, 976000.0, 1330000.0], "trend": "down", "trend_pct": -32.5}, {"sector": "Prof. & business svcs", "values": [2088000.0, 2114000.0, 1375000.0, 1295000.0, 1167000.0, 1304000.0], "trend": "down", "trend_pct": -37.5}, {"sector": "Leisure & hospitality", "values": [1690000.0, 1719000.0, 957000.0, 1222000.0, 956000.0, 830000.0], "trend": "down", "trend_pct": -50.9}, {"sector": "Government", "values": [1098000.0, 1029000.0, 991000.0, 889000.0, 722000.0, 823000.0], "trend": "down", "trend_pct": -25.0}, {"sector": "Retail trade", "values": [1011000.0, 937000.0, 717000.0, 502000.0, 505000.0, 774000.0], "trend": "down", "trend_pct": -23.4}, {"sector": "Accommodation & food", "values": [1504000.0, 1509000.0, 801000.0, 1024000.0, 818000.0, 684000.0], "trend": "down", "trend_pct": -54.5}, {"sector": "Manufacturing", "values": [877000.0, 750000.0, 597000.0, 401000.0, 426000.0, 481000.0], "trend": "down", "trend_pct": -45.2}, {"sector": "Construction", "values": [377000.0, 395000.0, 411000.0, 135000.0, 245000.0, 305000.0], "trend": "down", "trend_pct": -19.1}]}, "sector_netchange": {"period": "2025-06 \u2192 2026-06", "rows": [{"sector": "Education & health", "change": 648000}, {"sector": "Leisure & hospitality", "change": 114000}, {"sector": "Prof. & business svcs", "change": 88000}, {"sector": "Construction", "change": 64000}, {"sector": "Retail trade", "change": 34200}, {"sector": "Trade, transport, util.", "change": -13000}, {"sector": "Manufacturing", "change": -38000}, {"sector": "Information", "change": -89000}, {"sector": "Financial activities", "change": -100000}, {"sector": "Government", "change": -215000}]}, "freshness": {"BLS_JOLTS": "2026-06", "JOLTS_SECTOR": "2026-06", "CES_SECTOR": "2026-06", "ADZUNA": "2026-08", "CPI": "2026-06", "UNEMPLOYMENT": "2026-06", "UNEMP_SECTOR": "2026-06", "EARNINGS": "2026-06", "WAGE_SECTOR": "2026-06", "SENTIMENT": "2026-07"}, "unemployment_views": {"yearly_avg": [{"year": "2021", "rate": 5.35}, {"year": "2022", "rate": 3.65}, {"year": "2023", "rate": 3.62}, {"year": "2024", "rate": 4.02}, {"year": "2025", "rate": 4.26}, {"year": "2026", "rate": 4.3}], "last12": [{"month": "2025-06", "rate": 4.1}, {"month": "2025-07", "rate": 4.3}, {"month": "2025-08", "rate": 4.3}, {"month": "2025-09", "rate": 4.4}, {"month": "2025-11", "rate": 4.5}, {"month": "2025-12", "rate": 4.4}, {"month": "2026-01", "rate": 4.3}, {"month": "2026-02", "rate": 4.4}, {"month": "2026-03", "rate": 4.3}, {"month": "2026-04", "rate": 4.3}, {"month": "2026-05", "rate": 4.3}, {"month": "2026-06", "rate": 4.2}], "sector_latest": [{"sector": "Leisure & hospitality", "rate": 5.8}, {"sector": "Information", "rate": 5.1}, {"sector": "Construction", "rate": 4.7}, {"sector": "Education & health", "rate": 3.9}, {"sector": "Prof. & business svcs", "rate": 3.8}, {"sector": "Manufacturing", "rate": 3.7}, {"sector": "Transport & utilities", "rate": 3.7}, {"sector": "Wholesale & retail", "rate": 3.7}, {"sector": "Financial activities", "rate": 2.4}], "sector_yoy": [{"sector": "Construction", "change": 1.3}, {"sector": "Information", "change": 1.1}, {"sector": "Education & health", "change": 0.5}, {"sector": "Prof. & business svcs", "change": 0.2}, {"sector": "Financial activities", "change": 0.1}, {"sector": "Manufacturing", "change": 0.1}, {"sector": "Transport & utilities", "change": -0.2}, {"sector": "Leisure & hospitality", "change": -0.6}, {"sector": "Wholesale & retail", "change": -1.3}], "sector_table": {"years": ["2021", "2022", "2023", "2024", "2025", "2026"], "rows": [{"sector": "Leisure & hospitality", "values": [6.7, 5.4, 4.8, 5.4, 6.1, 5.8], "trend": "down", "trend_pct": -13.4}, {"sector": "Information", "values": [4.9, 2.4, 3.1, 3.9, 4.9, 5.1], "trend": "flat", "trend_pct": 4.1}, {"sector": "Construction", "values": [5.0, 4.4, 4.4, 5.2, 5.0, 4.7], "trend": "down", "trend_pct": -6.0}, {"sector": "Education & health", "values": [2.1, 2.0, 2.2, 2.7, 2.7, 3.9], "trend": "up", "trend_pct": 85.7}, {"sector": "Prof. & business svcs", "values": [3.8, 3.5, 3.9, 3.7, 4.2, 3.8], "trend": "flat", "trend_pct": 0.0}, {"sector": "Manufacturing", "values": [2.8, 1.8, 3.0, 3.5, 3.1, 3.7], "trend": "up", "trend_pct": 32.1}, {"sector": "Transport & utilities", "values": [3.3, 4.0, 3.9, 3.8, 3.5, 3.7], "trend": "up", "trend_pct": 12.1}, {"sector": "Wholesale & retail", "values": [4.2, 3.6, 4.0, 4.5, 4.7, 3.7], "trend": "down", "trend_pct": -11.9}, {"sector": "Financial activities", "values": [2.4, 2.6, 2.9, 2.1, 2.0, 2.4], "trend": "flat", "trend_pct": 0.0}]}}, "wage_views": {"nominal_vs_infl": [{"month": "2021-01", "wage": 5.28, "cpi": 1.4}, {"month": "2021-02", "wage": 5.29, "cpi": 1.68}, {"month": "2021-03", "wage": 4.52, "cpi": 2.62}, {"month": "2021-04", "wage": 0.6, "cpi": 4.16}, {"month": "2021-05", "wage": 2.32, "cpi": 4.99}, {"month": "2021-06", "wage": 3.95, "cpi": 5.39}, {"month": "2021-07", "wage": 4.32, "cpi": 5.37}, {"month": "2021-08", "wage": 4.37, "cpi": 5.25}, {"month": "2021-09", "wage": 4.98, "cpi": 5.39}, {"month": "2021-10", "wage": 5.42, "cpi": 6.22}, {"month": "2021-11", "wage": 5.36, "cpi": 6.81}, {"month": "2021-12", "wage": 4.95, "cpi": 7.04}, {"month": "2022-01", "wage": 5.58, "cpi": 7.48}, {"month": "2022-02", "wage": 5.29, "cpi": 7.87}, {"month": "2022-03", "wage": 5.89, "cpi": 8.54}, {"month": "2022-04", "wage": 5.76, "cpi": 8.26}, {"month": "2022-05", "wage": 5.56, "cpi": 8.58}, {"month": "2022-06", "wage": 5.4, "cpi": 9.06}, {"month": "2022-07", "wage": 5.48, "cpi": 8.52}, {"month": "2022-08", "wage": 5.39, "cpi": 8.26}, {"month": "2022-09", "wage": 5.13, "cpi": 8.2}, {"month": "2022-10", "wage": 5.01, "cpi": 7.75}, {"month": "2022-11", "wage": 5.09, "cpi": 7.11}, {"month": "2022-12", "wage": 4.94, "cpi": 6.45}, {"month": "2023-01", "wage": 4.49, "cpi": 6.41}, {"month": "2023-02", "wage": 4.77, "cpi": 6.04}, {"month": "2023-03", "wage": 4.62, "cpi": 4.98}, {"month": "2023-04", "wage": 4.6, "cpi": 4.93}, {"month": "2023-05", "wage": 4.36, "cpi": 4.05}, {"month": "2023-06", "wage": 4.66, "cpi": 2.97}, {"month": "2023-07", "wage": 4.67, "cpi": 3.18}, {"month": "2023-08", "wage": 4.47, "cpi": 3.67}, {"month": "2023-09", "wage": 4.42, "cpi": 3.7}, {"month": "2023-10", "wage": 4.22, "cpi": 3.24}, {"month": "2023-11", "wage": 4.11, "cpi": 3.14}, {"month": "2023-12", "wage": 4.1, "cpi": 3.35}, {"month": "2024-01", "wage": 4.39, "cpi": 3.09}, {"month": "2024-02", "wage": 4.13, "cpi": 3.15}, {"month": "2024-03", "wage": 4.15, "cpi": 3.48}, {"month": "2024-04", "wage": 3.98, "cpi": 3.36}, {"month": "2024-05", "wage": 4.15, "cpi": 3.27}, {"month": "2024-06", "wage": 3.92, "cpi": 2.97}, {"month": "2024-07", "wage": 3.63, "cpi": 2.89}, {"month": "2024-08", "wage": 3.92, "cpi": 2.53}, {"month": "2024-09", "wage": 3.91, "cpi": 2.44}, {"month": "2024-10", "wage": 4.05, "cpi": 2.6}, {"month": "2024-11", "wage": 4.18, "cpi": 2.75}, {"month": "2024-12", "wage": 4.08, "cpi": 2.89}, {"month": "2025-01", "wage": 3.97, "cpi": 3.0}, {"month": "2025-02", "wage": 4.11, "cpi": 2.82}, {"month": "2025-03", "wage": 4.21, "cpi": 2.39}, {"month": "2025-04", "wage": 3.91, "cpi": 2.31}, {"month": "2025-05", "wage": 3.98, "cpi": 2.35}, {"month": "2025-06", "wage": 3.86, "cpi": 2.67}, {"month": "2025-07", "wage": 3.96, "cpi": 2.7}, {"month": "2025-08", "wage": 3.98, "cpi": 2.92}, {"month": "2025-09", "wage": 3.85, "cpi": 3.01}, {"month": "2025-11", "wage": 3.93, "cpi": 2.74}, {"month": "2025-12", "wage": 3.73, "cpi": 2.68}, {"month": "2026-01", "wage": 3.66, "cpi": 2.39}, {"month": "2026-02", "wage": 3.7, "cpi": 2.41}, {"month": "2026-03", "wage": 3.43, "cpi": 3.26}, {"month": "2026-04", "wage": 3.57, "cpi": 3.81}, {"month": "2026-05", "wage": 3.39, "cpi": 4.25}, {"month": "2026-06", "wage": 3.52, "cpi": 3.53}], "sector_table": {"years": ["2021", "2022", "2023", "2024", "2025", "2026"], "rows": [{"sector": "Information", "values": [1.56, 6.1, 3.02, 4.44, 5.11, 5.96], "trend": "up", "trend_pct": 4.4}, {"sector": "Financial activities", "values": [4.2, 4.13, 5.02, 4.38, 4.09, 4.51], "trend": "up", "trend_pct": 0.3}, {"sector": "Construction", "values": [4.83, 6.01, 4.54, 4.48, 3.85, 4.34], "trend": "down", "trend_pct": -0.5}, {"sector": "Retail trade", "values": [5.3, 4.32, 3.37, 2.73, 4.62, 3.9], "trend": "down", "trend_pct": -1.4}, {"sector": "Leisure & hospitality", "values": [13.82, 6.94, 3.8, 3.89, 3.7, 3.87], "trend": "down", "trend_pct": -9.9}, {"sector": "Manufacturing", "values": [4.66, 3.76, 5.56, 4.0, 4.4, 3.79], "trend": "down", "trend_pct": -0.9}, {"sector": "Trade, transport, util.", "values": [5.18, 4.7, 4.49, 2.5, 4.12, 3.66], "trend": "down", "trend_pct": -1.5}, {"sector": "Prof. & business svcs", "values": [6.12, 5.02, 4.17, 5.17, 3.81, 3.44], "trend": "down", "trend_pct": -2.7}, {"sector": "Education & health", "values": [5.54, 4.96, 3.04, 4.32, 2.68, 2.37], "trend": "down", "trend_pct": -3.2}]}}};
+  ALL = payload.panels;
+  SECTOR_TABLE = payload.sector_table || null;
+  SECTOR_NETCHANGE = payload.sector_netchange || null;
+  const FRESH = payload.freshness || {};
+  UNEMP_VIEWS = payload.unemployment_views || null;
+  WAGE_VIEWS = payload.wage_views || null;
+  if (payload.as_of)
+    document.getElementById("asof").textContent = "as of " + payload.as_of.slice(0,7);
+
+  // Documentation panel: sources + freshness + the KPI threshold table.
+  // This makes the rigor already in the dashboard visible and legible.
+  const guide = document.getElementById("guide");
+  const srcRows = [
+    ["Job openings (JOLTS)", "BLS JOLTS", "BLS_JOLTS"],
+    ["Openings by sector", "BLS JOLTS by industry", "JOLTS_SECTOR"],
+    ["Net job change by sector", "BLS CES employment", "CES_SECTOR"],
+    ["Entry-level demand", "Adzuna API (proxy)", "ADZUNA"],
+    ["Inflation (CPI YoY)", "BLS CPI-U", "CPI"],
+    ["Unemployment (U-3)", "BLS CPS", "UNEMPLOYMENT"],
+    ["Avg hourly earnings", "BLS CES", "EARNINGS"],
+    ["Consumer sentiment", "U. Michigan", "SENTIMENT"],
+  ];
+  let g = `<summary>Sources, Definitions &amp; Methodology</summary><div class="body">`;
+  g += `<h3>Data freshness (latest month on record, by source)</h3><div class="fresh">`;
+  srcRows.forEach(([label, , key]) => {
+    if (FRESH[key]) g += `<span><b>${label}:</b> ${FRESH[key]}</span>`;
+  });
+  g += `</div>`;
+  g += `<h3>Sources</h3><table><thead><tr><th>Metric</th><th>Source</th></tr></thead><tbody>`;
+  srcRows.forEach(([label, src]) => {
+    g += `<tr><td>${label}</td><td>${src}</td></tr>`;
+  });
+  g += `</tbody></table>`;
+  g += `<h3>KPI signal thresholds</h3>`
+    + `<p style="color:var(--muted);margin:0 0 6px">Tiles color automatically from these `
+    + `bounds. Metrics with no standard economic threshold stay neutral rather than `
+    + `implying precision that isn't there.</p>`;
+  g += `<table><thead><tr><th>Metric</th><th>Healthy</th><th>Watch</th><th>Stress</th><th>Rationale</th></tr></thead><tbody>`
+    + `<tr><td>Unemployment (U-3)</td><td class="g">&lt; 4.0%</td><td class="a">4.0–4.9%</td><td class="r">≥ 5.0%</td><td>Sub-4% ≈ full employment; 5%+ historically signals recession onset.</td></tr>`
+    + `<tr><td>CPI YoY</td><td class="g">&lt; 2.5%</td><td class="a">2.5–3.5%</td><td class="r">≥ 3.5%</td><td>Fed targets ~2%; 3.5%+ is a persistent overshoot.</td></tr>`
+    + `<tr><td>Wage growth</td><td class="g">3.0–4.5%</td><td class="a">outside band</td><td class="r">&lt;2% or &gt;6%</td><td>"Goldilocks" band supports spending without a wage-price spiral.</td></tr>`
+    + `<tr><td>Real wage growth</td><td class="g">≥ +0.5%</td><td class="a">0 to +0.5%</td><td class="r">&lt; 0%</td><td>Positive = pay outpacing prices; negative = buying power eroding.</td></tr>`
+    + `<tr><td>Consumer sentiment</td><td class="g">≥ 70</td><td class="a">55–70</td><td class="r">&lt; 55</td><td>Long-run avg ~85; sub-55 is crisis-level (2008, 2022).</td></tr>`
+    + `<tr><td>Job openings / pay level</td><td colspan="3" style="color:var(--muted)">neutral — no standard bound</td><td>Counts and dollar levels have no accepted healthy/stress cutoff.</td></tr>`
+    + `</tbody></table>`;
+  g += `<h3>Methodology notes</h3>`
+    + `<p style="color:var(--muted);margin:0">Year-over-year figures compare the same month a year `
+    + `earlier (seasonality cancels). Real wage growth = wage growth − CPI, computed live. `
+    + `Lead-lag analysis (see leadlag.py) first-differences each series to avoid spurious trend `
+    + `correlation and reports significance (p-value + 95% CI). Sources update on different `
+    + `cadences — JOLTS and CPI lag ~4–6 weeks; sentiment is near-current.</p>`;
+  g += `</div>`;
+  guide.innerHTML = g;
+
+  // Unique tabs in panel order, with "Overview" (everything) always first.
+  const tabs = ["Overview"];
+  ALL.forEach(p => { if (p.tab && !tabs.includes(p.tab)) tabs.push(p.tab); });
+  // Insert a dedicated Unemployment tab (built from custom views, not panels)
+  // right after Jobs, if we have the data for it.
+  if (UNEMP_VIEWS) {
+    const jobsIdx = tabs.indexOf("Jobs");
+    const at = jobsIdx >= 0 ? jobsIdx + 1 : tabs.length;
+    tabs.splice(at, 0, "Unemployment");
+  }
+  ACTIVE = tabs[0];
+
+  // Build tab bar.
+  const tabbar = document.getElementById("tabbar");
+  tabs.forEach(t => {
+    const b = document.createElement("button");
+    b.className = "tab" + (t === ACTIVE ? " active" : "");
+    b.textContent = t;
+    b.addEventListener("click", () => {
+      ACTIVE = t;
+      [...tabbar.children].forEach(c =>
+        c.classList.toggle("active", c.textContent === t));
+      render();
+    });
+    tabbar.appendChild(b);
+  });
+
+  render();
+}
+
+function render() {
+  // Destroy any prior charts so re-render doesn't leak or double-draw.
+  while (charts.length) { try { charts.pop().destroy(); } catch (e) {} }
+
+  // The Unemployment tab is built from custom views, not standard panels.
+  if (ACTIVE === "Unemployment") { renderUnemployment(); return; }
+
+  // Overview shows everything; a named tab shows only its own panels.
+  const panels = ACTIVE === "Overview"
+    ? ALL
+    : ALL.filter(p => p.tab === ACTIVE);
+
+  // KPI strip (filtered to active tab).
+  const kpis = document.getElementById("kpis");
+  kpis.innerHTML = "";
+  panels.forEach(s => {
+    const fmt = UNIT_FMT[s.unit] || (v => v);
+    const v = s.stats.latest_value;
+    const tile = document.createElement("div");
+    tile.className = "tile " + s.status;
+    tile.innerHTML = `<div class="lab mono">${s.kpi_label}</div>
+      <div class="val mono">${v === null ? "\u2014" : fmt(v)}</div>
+      <div class="dot mono">\u25CF ${STATUS_WORD[s.status]}</div>`;
+    kpis.appendChild(tile);
+  });
+
+  const wrap = document.getElementById("wrap");
+  wrap.innerHTML = "";
+
+  // Tab commentary read (only for tabs where we have something honest to say).
+  const read = tabRead(panels);
+  if (read) {
+    const c = document.createElement("div");
+    c.className = "tabread";
+    c.innerHTML = `<span class="mono">${ACTIVE.toUpperCase()} READ</span> ${read}`;
+    wrap.appendChild(c);
+  }
+
+  // Exhibits (filtered to active tab).
+  panels.forEach(s => {
+    const fmt = UNIT_FMT[s.unit] || (v => v);
+    const last = s.points.length ? s.points[s.points.length-1] : null;
+    const ex = document.createElement("div");
+    ex.className = "exhibit";
+    ex.innerHTML = `
+      <div class="extag mono">Exhibit ${s.exhibit}<span>|</span><b>${s.src_tag}</b>
+        <span>|</span>${last ? "As of " + last.date.slice(0,7) : "No data"}</div>
+      <div class="exhead">
+        <h2>${s.title}</h2>
+        ${last ? `<div class="latest"><div class="n mono">${fmt(last.value)}</div>
+          <div class="l mono">${last.date.slice(0,7)}</div></div>` : ""}
+      </div>
+      <div class="sub">${s.subtitle}</div>`;
+
+    if (!s.points.length) {
+      const e = document.createElement("div");
+      e.className = "empty";
+      e.textContent = "No data yet. Run collect.py.";
+      ex.appendChild(e);
+      wrap.appendChild(ex);
+      return;
+    }
+
+    const badges = document.createElement("div");
+    badges.className = "badges";
+    badges.innerHTML = badge("MoM", s.stats.mom_pct) + badge("YTD", s.stats.ytd_pct);
+    ex.appendChild(badges);
+
+    const box = document.createElement("div");
+    box.className = "chartbox";
+    const canvas = document.createElement("canvas");
+    box.appendChild(canvas);
+    ex.appendChild(box);
+
+    const srcline = document.createElement("p");
+    srcline.className = "srcline mono";
+    srcline.textContent = s.source_line;
+    ex.appendChild(srcline);
+
+    // Per-graph analytical read - ONLY in the focused tabs, not on Overview
+    // (Overview is the at-a-glance scan; the tabs are where you go to understand).
+    if (ACTIVE !== "Overview") {
+      const readTxt = graphRead(s);
+      if (readTxt) {
+        const gr = document.createElement("div");
+        gr.className = "graphread";
+        gr.innerHTML = `<span class="lbl">ANALYSIS</span>${readTxt}`;
+        ex.appendChild(gr);
+      }
+    }
+
+    wrap.appendChild(ex);
+
+    if (!CHART_OK) {
+      box.innerHTML = `<div class="empty">Chart library unavailable \u2014 `
+        + `check your internet connection, then refresh.</div>`;
+      return;
+    }
+    try {
+      const muted = cssVar("--muted"), grid = cssVar("--grid");
+      charts.push(new Chart(canvas, {
+        type:"line",
+        data:{
+          labels:s.points.map(p=>p.date.slice(0,7)),
+          datasets:[{
+            data:s.points.map(p=>p.value),
+            borderColor:s.color, backgroundColor:s.color+"1E",
+            borderWidth:2, pointRadius:0, tension:.25, fill:true,
+          }],
+        },
+        options:{
+          responsive:true, maintainAspectRatio:false,
+          plugins:{ legend:{display:false},
+            tooltip:{ callbacks:{ label:c=>fmt(c.parsed.y) } } },
+          scales:{
+            x:{ ticks:{maxTicksLimit:8,color:muted,font:{family:"ui-monospace"}}, grid:{display:false} },
+            y:{ ticks:{color:muted,font:{family:"ui-monospace"},callback:v=>fmt(v)}, grid:{color:grid} },
+          },
+        },
+      }));
+    } catch (err) {
+      box.innerHTML = `<div class="empty">Could not draw this chart.</div>`;
+    }
+  });
+
+  // CES year-over-year net job change - horizontal bar chart, Jobs tab only.
+  if (ACTIVE === "Jobs" && SECTOR_NETCHANGE && SECTOR_NETCHANGE.rows.length && CHART_OK) {
+    const nc = SECTOR_NETCHANGE;
+    const bw = document.createElement("div");
+    bw.className = "sectorwrap";
+    bw.innerHTML =
+      `<div class="extag mono">Exhibit B<span>|</span><b>BLS CES</b>`
+      + `<span>|</span>${nc.period}</div>`
+      + `<div class="exhead"><h2>Net job change by sector (year over year)</h2></div>`
+      + `<div class="sub">Jobs gained or lost per sector over the last 12 months `
+      + `(same month year-over-year, so seasonality cancels). Green = growing, `
+      + `red = shrinking. Source: BLS CES employment levels.</div>`;
+    const cbox = document.createElement("div");
+    cbox.className = "chartbox";
+    cbox.style.height = (Math.max(220, nc.rows.length * 34)) + "px";
+    const ccanvas = document.createElement("canvas");
+    cbox.appendChild(ccanvas);
+    bw.appendChild(cbox);
+    wrap.appendChild(bw);
+
+    const healthy = cssVar("--healthy"), stress = cssVar("--stress"),
+          muted = cssVar("--muted"), grid = cssVar("--grid");
+    try {
+      charts.push(new Chart(ccanvas, {
+        type: "bar",
+        data: {
+          labels: nc.rows.map(r => r.sector),
+          datasets: [{
+            data: nc.rows.map(r => r.change),
+            backgroundColor: nc.rows.map(r => r.change >= 0 ? healthy : stress),
+            borderWidth: 0,
+          }],
+        },
+        options: {
+          indexAxis: "y",              // horizontal bars
+          responsive: true, maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: { callbacks: {
+              label: c => (c.parsed.x >= 0 ? "+" : "")
+                + Math.round(c.parsed.x).toLocaleString() + " jobs" } },
+          },
+          scales: {
+            x: { ticks: { color: muted, font: { family: "ui-monospace" },
+                 callback: v => (v >= 0 ? "+" : "")
+                   + (Math.round(v/1000)) + "K" },
+                 grid: { color: grid } },
+            y: { ticks: { color: muted, font: { family: "ui-monospace" } },
+                 grid: { display: false } },
+          },
+        },
+      }));
+    } catch (err) {
+      cbox.innerHTML = `<div class="empty">Could not draw the bar chart.</div>`;
+    }
+  }
+
+  // Sector openings table - only on the Jobs tab, and only if we have the data.
+  if (ACTIVE === "Jobs" && SECTOR_TABLE && SECTOR_TABLE.rows.length) {
+    const fmtK = v => v === null ? "\u2014" : Math.round(v).toLocaleString();
+    const arrows = { up:"\u2191", down:"\u2193", flat:"\u2192" };
+    const sw = document.createElement("div");
+    sw.className = "sectorwrap";
+    let html = `<div class="extag mono">Exhibit S<span>|</span><b>BLS JOLTS</b>`
+      + `<span>|</span>Openings by sector</div>`
+      + `<div class="exhead"><h2>Job openings by sector</h2></div>`
+      + `<div class="sub">Openings per industry (latest month of each year). `
+      + `The trend column compares the earliest year on record to the latest.</div>`;
+    html += `<table class="sectortbl"><thead><tr><th class="name">Sector</th>`;
+    SECTOR_TABLE.years.forEach(y => { html += `<th>${y}</th>`; });
+    html += `<th>Trend</th></tr></thead><tbody>`;
+    SECTOR_TABLE.rows.forEach(r => {
+      html += `<tr><td class="name">${r.sector}</td>`;
+      r.values.forEach(v => { html += `<td class="mono">${fmtK(v)}</td>`; });
+      const pct = r.trend_pct === null ? "" :
+        ` ${r.trend_pct >= 0 ? "+" : ""}${r.trend_pct}%`;
+      html += `<td class="trend ${r.trend} mono">${arrows[r.trend]}${pct}</td></tr>`;
+    });
+    html += `</tbody></table>`;
+    html += `<p class="srcline mono">Source: BLS JOLTS by industry `
+      + `(seasonally adjusted openings levels). Figures are the latest available `
+      + `month within each year, in number of openings.</p>`;
+    sw.innerHTML = html;
+    wrap.appendChild(sw);
+  }
+
+  // Wages tab extras: nominal-vs-inflation two-line chart + sector wage table.
+  if (ACTIVE === "Wages" && WAGE_VIEWS) {
+    const wv = WAGE_VIEWS;
+    const accent = cssVar("--accent"), stress = cssVar("--stress"),
+          muted = cssVar("--muted"), grid = cssVar("--grid");
+
+    // Two-line chart: nominal wage growth vs inflation.
+    if (wv.nominal_vs_infl && wv.nominal_vs_infl.length && CHART_OK) {
+      const ex = document.createElement("div");
+      ex.className = "exhibit";
+      ex.innerHTML = `<div class="extag mono">Exhibit W1<span>|</span><b>BLS CES + CPI</b></div>`
+        + `<div class="exhead"><h2>Wage growth vs inflation</h2></div>`
+        + `<div class="sub">Nominal wage growth (blue) against inflation (red). When the blue `
+        + `line is above red, raises are beating prices \u2014 the gap between them is real wage growth.</div>`;
+      const box = document.createElement("div");
+      box.className = "chartbox";
+      const canvas = document.createElement("canvas");
+      box.appendChild(canvas); ex.appendChild(box);
+      const p = document.createElement("p");
+      p.className = "srcline mono";
+      p.textContent = "Source: BLS CES avg hourly earnings YoY vs BLS CPI-U YoY. "
+        + "Real wage growth = the gap between the two lines.";
+      ex.appendChild(p);
+      wrap.appendChild(ex);
+      try {
+        charts.push(new Chart(canvas, {
+          type: "line",
+          data: { labels: wv.nominal_vs_infl.map(r => r.month),
+            datasets: [
+              { label: "Wage growth", data: wv.nominal_vs_infl.map(r => r.wage),
+                borderColor: accent, backgroundColor: "transparent", borderWidth: 2,
+                pointRadius: 0, tension: .25 },
+              { label: "Inflation (CPI)", data: wv.nominal_vs_infl.map(r => r.cpi),
+                borderColor: stress, backgroundColor: "transparent", borderWidth: 2,
+                pointRadius: 0, tension: .25 },
+            ] },
+          options: { responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { display: true, labels: { color: muted, font: { family: "ui-monospace" } } },
+              tooltip: { callbacks: { label: c => c.dataset.label + ": " + c.parsed.y.toFixed(2) + "%" } } },
+            scales: { x: { ticks:{maxTicksLimit:8,color:muted,font:{family:"ui-monospace"}}, grid:{display:false} },
+              y: { ticks:{color:muted,font:{family:"ui-monospace"},callback:v=>v+"%"}, grid:{color:grid} } } }
+        }));
+      } catch (err) { box.innerHTML = `<div class="empty">Could not draw this chart.</div>`; }
+    }
+
+    // Sector wage-growth table.
+    if (wv.sector_table && wv.sector_table.rows.length) {
+      const t = wv.sector_table;
+      const arrows = { up:"\u2191", down:"\u2193", flat:"\u2192" };
+      const sw2 = document.createElement("div");
+      sw2.className = "sectorwrap";
+      let html = `<div class="extag mono">Exhibit W2<span>|</span><b>BLS CES</b></div>`
+        + `<div class="exhead"><h2>Wage growth by sector (year over year)</h2></div>`
+        + `<div class="sub">Annual wage growth per sector. Trend shows whether growth is `
+        + `accelerating (up) or cooling (down) from the earliest year on record to the latest.</div>`;
+      html += `<table class="sectortbl"><thead><tr><th class="name">Sector</th>`;
+      t.years.forEach(y => html += `<th>${y}</th>`);
+      html += `<th>Trend</th></tr></thead><tbody>`;
+      t.rows.forEach(r => {
+        html += `<tr><td class="name">${r.sector}</td>`;
+        r.values.forEach(v => html += `<td class="mono">${v === null ? "\u2014" : v.toFixed(1)+"%"}</td>`);
+        const pct = r.trend_pct === null ? "" : ` ${r.trend_pct>=0?"+":""}${r.trend_pct}pp`;
+        html += `<td class="trend ${r.trend} mono">${arrows[r.trend]}${pct}</td></tr>`;
+      });
+      html += `</tbody></table>`;
+      html += `<p class="srcline mono">Source: BLS CES average hourly earnings by sector `
+        + `(CES..03), year-over-year growth. Trend = change in the growth rate itself, `
+        + `earliest to latest year (accelerating vs cooling).</p>`;
+      sw2.innerHTML = html;
+      wrap.appendChild(sw2);
+    }
+  }
+}
+main();
+</script>
+</body>
+</html>
